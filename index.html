@@ -252,16 +252,32 @@
         }
 
         .chart-container {
-            max-width: 600px;
+            width: 100%;
+            max-width: 800px;
             margin: 0 auto;
             margin-bottom: 40px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .chart-container canvas {
+            max-height: 500px;
         }
 
         .charts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            display: flex;
+            flex-direction: column;
             gap: 30px;
             margin-top: 20px;
+        }
+
+        @media (min-width: 1400px) {
+            .charts-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         .loading {
@@ -614,6 +630,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
+                    aspectRatio: 1.5,
                     plugins: {
                         legend: {
                             position: 'bottom',
@@ -628,8 +645,10 @@
                             display: true,
                             text: 'การกระจายของความรู้สึก / Sentiment Distribution',
                             font: {
-                                size: 16
-                            }
+                                size: 16,
+                                weight: 'bold'
+                            },
+                            padding: 20
                         },
                         tooltip: {
                             callbacks: {
@@ -637,20 +656,17 @@
                                     const label = context.label || '';
                                     const value = context.parsed || 0;
                                     const percentage = ((value / total) * 100).toFixed(1);
-                                    return `${label}: ${value} (${percentage}%)`;
+                                    return `${label}: ${value} รายการ (${percentage}%)`;
                                 }
-                            }
-                        },
-                        datalabels: {
-                            formatter: (value, ctx) => {
-                                const percentage = ((value / total) * 100).toFixed(1);
-                                return `${percentage}%`;
                             },
-                            color: '#fff',
-                            font: {
-                                weight: 'bold',
-                                size: 16
-                            }
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleFont: {
+                                size: 14
+                            },
+                            bodyFont: {
+                                size: 13
+                            },
+                            padding: 12
                         }
                     }
                 },
@@ -662,7 +678,7 @@
                             if (!meta.hidden) {
                                 meta.data.forEach(function(element, index) {
                                     ctx.fillStyle = 'white';
-                                    const fontSize = 16;
+                                    const fontSize = 18;
                                     const fontStyle = 'bold';
                                     const fontFamily = 'Arial';
                                     ctx.font = Chart.helpers.fontString(fontSize, fontStyle, fontFamily);
@@ -686,57 +702,65 @@
                 lineChartInstance.destroy();
             }
 
-            const lineChartData = analysisData.map((item, index) => ({
-                x: index + 1,
-                y: item.normalizedScore
-            }));
+            // เตรียมข้อมูลสำหรับกราฟเส้น
+            const labels = analysisData.map((item) => `#${item.no}`);
+            const scores = analysisData.map((item) => item.normalizedScore);
+            const colors = scores.map(score => {
+                if (score > 0.2) return 'rgba(56, 239, 125, 1)';
+                if (score < -0.2) return 'rgba(244, 92, 67, 1)';
+                return 'rgba(75, 108, 183, 1)';
+            });
 
             lineChartInstance = new Chart(lineCtx, {
                 type: 'line',
                 data: {
+                    labels: labels,
                     datasets: [{
-                        label: 'Sentiment Score',
-                        data: lineChartData,
+                        label: 'Sentiment Score (คะแนนความรู้สึก)',
+                        data: scores,
                         borderColor: 'rgba(102, 126, 234, 1)',
                         backgroundColor: 'rgba(102, 126, 234, 0.1)',
                         borderWidth: 3,
-                        pointRadius: 5,
-                        pointBackgroundColor: function(context) {
-                            const value = context.parsed.y;
-                            if (value > 0.2) return 'rgba(56, 239, 125, 1)';
-                            if (value < -0.2) return 'rgba(244, 92, 67, 1)';
-                            return 'rgba(75, 108, 183, 1)';
-                        },
+                        pointRadius: 6,
+                        pointBackgroundColor: colors,
                         pointBorderColor: '#fff',
                         pointBorderWidth: 2,
-                        pointHoverRadius: 7,
+                        pointHoverRadius: 8,
                         fill: true,
-                        tension: 0.4
+                        tension: 0.3
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
+                    aspectRatio: 2,
                     scales: {
                         y: {
-                            min: -1,
-                            max: 1,
+                            min: -1.2,
+                            max: 1.2,
                             ticks: {
                                 stepSize: 0.5,
+                                font: {
+                                    size: 12
+                                },
                                 callback: function(value) {
-                                    if (value === 1) return '+1 (Positive)';
-                                    if (value === 0) return '0 (Neutral)';
-                                    if (value === -1) return '-1 (Negative)';
-                                    return value;
+                                    if (value === 1) return '+1.0 (Positive)';
+                                    if (value === 0.5) return '+0.5';
+                                    if (value === 0) return '0.0 (Neutral)';
+                                    if (value === -0.5) return '-0.5';
+                                    if (value === -1) return '-1.0 (Negative)';
+                                    return value.toFixed(1);
                                 }
                             },
                             grid: {
                                 color: function(context) {
-                                    if (context.tick.value === 0) return 'rgba(0, 0, 0, 0.3)';
+                                    if (context.tick.value === 0) return 'rgba(102, 126, 234, 0.5)';
+                                    if (context.tick.value === 1 || context.tick.value === -1) return 'rgba(0, 0, 0, 0.2)';
                                     return 'rgba(0, 0, 0, 0.1)';
                                 },
                                 lineWidth: function(context) {
-                                    if (context.tick.value === 0) return 2;
+                                    if (context.tick.value === 0) return 3;
+                                    if (context.tick.value === 1 || context.tick.value === -1) return 2;
                                     return 1;
                                 }
                             }
@@ -744,35 +768,75 @@
                         x: {
                             title: {
                                 display: true,
-                                text: 'ลำดับข้อความ / Text Number'
+                                text: 'ลำดับข้อความ / Text Number',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
                             },
                             ticks: {
-                                stepSize: 1
+                                font: {
+                                    size: 11
+                                },
+                                maxRotation: 45,
+                                minRotation: 0
+                            },
+                            grid: {
+                                display: false
                             }
                         }
                     },
                     plugins: {
                         legend: {
                             display: true,
-                            position: 'bottom'
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 14
+                                },
+                                padding: 20
+                            }
                         },
                         title: {
                             display: true,
                             text: 'ค่าความรู้สึกแต่ละข้อความ / Sentiment Score per Text',
                             font: {
-                                size: 16
-                            }
+                                size: 16,
+                                weight: 'bold'
+                            },
+                            padding: 20
                         },
                         tooltip: {
                             callbacks: {
+                                title: function(context) {
+                                    return `ข้อความที่ ${context[0].label}`;
+                                },
                                 label: function(context) {
                                     const value = context.parsed.y;
-                                    let sentiment = 'Neutral';
-                                    if (value > 0.2) sentiment = 'Positive';
-                                    else if (value < -0.2) sentiment = 'Negative';
-                                    return `Score: ${value} (${sentiment})`;
+                                    let sentiment = 'Neutral (กลางๆ)';
+                                    if (value > 0.2) sentiment = 'Positive (บวก)';
+                                    else if (value < -0.2) sentiment = 'Negative (ลบ)';
+                                    return [
+                                        `คะแนน: ${value.toFixed(2)}`,
+                                        `ประเภท: ${sentiment}`
+                                    ];
+                                },
+                                afterLabel: function(context) {
+                                    const index = context.dataIndex;
+                                    if (analysisData[index]) {
+                                        return `ข้อความ: "${analysisData[index].text.substring(0, 50)}${analysisData[index].text.length > 50 ? '...' : ''}"`;
+                                    }
+                                    return '';
                                 }
-                            }
+                            },
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleFont: {
+                                size: 14
+                            },
+                            bodyFont: {
+                                size: 13
+                            },
+                            padding: 12
                         }
                     }
                 }
