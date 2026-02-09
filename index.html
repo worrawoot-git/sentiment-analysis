@@ -1,1 +1,650 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentiment Analysis Tool | เครื่องมือวิเคราะห์ความรู้สึก</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s;
+        }
+
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #f0f1ff;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-label {
+            background: #667eea;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-block;
+            font-size: 1.1em;
+            transition: all 0.3s;
+        }
+
+        .file-label:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .file-name {
+            margin-top: 15px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn-analyze {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-analyze:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .btn-reset {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-reset:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.4);
+        }
+
+        .btn-download {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-download:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results {
+            display: none;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .summary-card.positive {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .summary-card.negative {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        }
+
+        .summary-card.neutral {
+            background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+        }
+
+        .summary-card h3 {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+
+        .summary-card .count {
+            font-size: 2.5em;
+            font-weight: bold;
+        }
+
+        .summary-card .percentage {
+            font-size: 1em;
+            opacity: 0.9;
+        }
+
+        .table-section {
+            margin-bottom: 30px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .sentiment-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .sentiment-badge.positive {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .sentiment-badge.negative {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .sentiment-badge.neutral {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .chart-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .chart-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Sentiment Analysis Tool</h1>
+        <p class="subtitle">เครื่องมือวิเคราะห์ความรู้สึกจากข้อความ (รองรับภาษาไทยและอังกฤษ)</p>
+
+        <div class="upload-section">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" accept=".xlsx, .xls" />
+                <label for="fileInput" class="file-label">
+                    📁 เลือกไฟล์ Excel / Choose Excel File
+                </label>
+            </div>
+            <div class="file-name" id="fileName">ยังไม่ได้เลือกไฟล์ / No file selected</div>
+        </div>
+
+        <div class="error" id="error"></div>
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 15px;">กำลังวิเคราะห์ข้อมูล... / Analyzing data...</p>
+        </div>
+
+        <div class="buttons">
+            <button class="btn-analyze" id="analyzeBtn" disabled>
+                🔍 วิเคราะห์ / Analyze
+            </button>
+            <button class="btn-download" id="downloadExcel" disabled>
+                📥 ดาวน์โหลด Excel / Download Excel
+            </button>
+            <button class="btn-download" id="downloadChart" disabled>
+                📊 ดาวน์โหลดกราฟ PNG / Download Chart PNG
+            </button>
+            <button class="btn-reset" id="resetBtn">
+                🔄 รีเซ็ต / Reset
+            </button>
+        </div>
+
+        <div class="results" id="results">
+            <div class="summary" id="summary"></div>
+
+            <div class="table-section">
+                <h2 style="margin-bottom: 20px; color: #667eea;">📋 ผลการวิเคราะห์ / Analysis Results</h2>
+                <table id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>ลำดับ / No.</th>
+                            <th>ข้อความ / Text</th>
+                            <th>ความรู้สึก / Sentiment</th>
+                            <th>คะแนน / Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+
+            <div class="chart-section">
+                <h2 style="margin-bottom: 20px; color: #667eea; text-align: center;">
+                    📈 กราฟแสดงผล / Visualization Chart
+                </h2>
+                <div class="chart-container">
+                    <canvas id="sentimentChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let analysisData = [];
+        let chartInstance = null;
+
+        // คำศัพท์ภาษาไทย
+        const thaiPositiveWords = [
+            'ดี', 'สวย', 'เยี่ยม', 'ยอดเยี่ยม', 'ชอบ', 'รัก', 'สุข', 'มีความสุข', 
+            'ประทับใจ', 'สนุก', 'เจ๋ง', 'วิเศษ', 'น่ารัก', 'สบาย', 'พอใจ', 'ดีมาก',
+            'ใช่', 'เพิ่ม', 'ส่งเสริม', 'สวยงาม', 'ดีเลิศ', 'น่าพึงพอใจ', 'สดใส',
+            'ชื่นชม', 'ชื่นใจ', 'อร่อย', 'เก่ง', 'ฉลาด', 'เจริญ'
+        ];
+
+        const thaiNegativeWords = [
+            'แย่', 'เลว', 'ไม่ดี', 'เกลียด', 'โกรธ', 'เศร้า', 'ผิดหวัง', 'น่าเบื่อ',
+            'เหนื่อย', 'ทุกข์', 'ไม่ชอบ', 'น่ารำคาญ', 'ปวดหัว', 'เสีย', 'พัง', 'แย่มาก',
+            'ไม่', 'เสียใจ', 'เหลวไหล', 'ร้าย', 'น่ากลัว', 'อันตราย', 'ผิดพลาด',
+            'เครียด', 'วิตก', 'กังวล', 'ไม่ใช่', 'ยาก'
+        ];
+
+        // คำศัพท์ภาษาอังกฤษ
+        const englishPositiveWords = [
+            'good', 'great', 'excellent', 'amazing', 'wonderful', 'fantastic', 'love',
+            'like', 'happy', 'joy', 'beautiful', 'best', 'perfect', 'awesome', 'nice',
+            'pleasant', 'delightful', 'brilliant', 'superb', 'outstanding', 'fabulous',
+            'terrific', 'magnificent', 'impressive', 'enjoy', 'pleased', 'satisfied'
+        ];
+
+        const englishNegativeWords = [
+            'bad', 'terrible', 'awful', 'horrible', 'worst', 'hate', 'dislike', 'sad',
+            'angry', 'disappointed', 'boring', 'poor', 'negative', 'difficult', 'hard',
+            'problem', 'issue', 'wrong', 'fail', 'failure', 'unfortunate', 'unhappy',
+            'annoying', 'frustrating', 'disgusting', 'useless', 'pathetic'
+        ];
+
+        // File input handler
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('analyzeBtn').disabled = false;
+            }
+        });
+
+        // Analyze button
+        document.getElementById('analyzeBtn').addEventListener('click', function() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showError('กรุณาเลือกไฟล์ Excel / Please select an Excel file');
+                return;
+            }
+
+            const reader = new FileReader();
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                    
+                    if (jsonData.length < 2) {
+                        throw new Error('ไฟล์ไม่มีข้อมูล / File contains no data');
+                    }
+
+                    // ดึงข้อความจากคอลัมน์แรก (ข้ามหัวตาราง)
+                    const texts = jsonData.slice(1)
+                        .map(row => row[0])
+                        .filter(text => text && text.toString().trim() !== '');
+
+                    if (texts.length === 0) {
+                        throw new Error('ไม่พบข้อความที่จะวิเคราะห์ / No text found to analyze');
+                    }
+
+                    analyzeSentiments(texts);
+                } catch (error) {
+                    showError('เกิดข้อผิดพลาดในการอ่านไฟล์: ' + error.message);
+                    document.getElementById('loading').style.display = 'none';
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+
+        function analyzeSentiments(texts) {
+            analysisData = texts.map((text, index) => {
+                const sentiment = analyzeSentiment(text);
+                return {
+                    no: index + 1,
+                    text: text,
+                    sentiment: sentiment.label,
+                    score: sentiment.score
+                };
+            });
+
+            displayResults();
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function analyzeSentiment(text) {
+            const lowerText = text.toLowerCase();
+            let positiveScore = 0;
+            let negativeScore = 0;
+
+            // วิเคราะห์ภาษาไทย
+            thaiPositiveWords.forEach(word => {
+                if (text.includes(word)) positiveScore++;
+            });
+
+            thaiNegativeWords.forEach(word => {
+                if (text.includes(word)) negativeScore++;
+            });
+
+            // วิเคราะห์ภาษาอังกฤษ
+            englishPositiveWords.forEach(word => {
+                if (lowerText.includes(word)) positiveScore++;
+            });
+
+            englishNegativeWords.forEach(word => {
+                if (lowerText.includes(word)) negativeScore++;
+            });
+
+            const totalScore = positiveScore - negativeScore;
+            
+            let label, score;
+            if (totalScore > 0) {
+                label = 'Positive';
+                score = Math.min(100, 50 + (totalScore * 10));
+            } else if (totalScore < 0) {
+                label = 'Negative';
+                score = Math.max(0, 50 + (totalScore * 10));
+            } else {
+                label = 'Neutral';
+                score = 50;
+            }
+
+            return { label, score: Math.round(score) };
+        }
+
+        function displayResults() {
+            // นับจำนวน
+            const counts = {
+                positive: analysisData.filter(d => d.sentiment === 'Positive').length,
+                negative: analysisData.filter(d => d.sentiment === 'Negative').length,
+                neutral: analysisData.filter(d => d.sentiment === 'Neutral').length
+            };
+
+            const total = analysisData.length;
+
+            // แสดง summary cards
+            const summaryHTML = `
+                <div class="summary-card positive">
+                    <h3>😊 Positive<br>ความรู้สึกบวก</h3>
+                    <div class="count">${counts.positive}</div>
+                    <div class="percentage">${((counts.positive/total)*100).toFixed(1)}%</div>
+                </div>
+                <div class="summary-card negative">
+                    <h3>😞 Negative<br>ความรู้สึกลบ</h3>
+                    <div class="count">${counts.negative}</div>
+                    <div class="percentage">${((counts.negative/total)*100).toFixed(1)}%</div>
+                </div>
+                <div class="summary-card neutral">
+                    <h3>😐 Neutral<br>ความรู้สึกกลางๆ</h3>
+                    <div class="count">${counts.neutral}</div>
+                    <div class="percentage">${((counts.neutral/total)*100).toFixed(1)}%</div>
+                </div>
+            `;
+            document.getElementById('summary').innerHTML = summaryHTML;
+
+            // แสดงตาราง
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+            
+            analysisData.forEach(item => {
+                const row = tableBody.insertRow();
+                row.innerHTML = `
+                    <td>${item.no}</td>
+                    <td>${item.text}</td>
+                    <td><span class="sentiment-badge ${item.sentiment.toLowerCase()}">${item.sentiment}</span></td>
+                    <td>${item.score}</td>
+                `;
+            });
+
+            // สร้างกราฟ
+            createChart(counts);
+
+            // แสดงผลลัพธ์
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('downloadExcel').disabled = false;
+            document.getElementById('downloadChart').disabled = false;
+        }
+
+        function createChart(counts) {
+            const ctx = document.getElementById('sentimentChart').getContext('2d');
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Positive (บวก)', 'Negative (ลบ)', 'Neutral (กลางๆ)'],
+                    datasets: [{
+                        data: [counts.positive, counts.negative, counts.neutral],
+                        backgroundColor: [
+                            'rgba(56, 239, 125, 0.8)',
+                            'rgba(244, 92, 67, 0.8)',
+                            'rgba(75, 108, 183, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(56, 239, 125, 1)',
+                            'rgba(244, 92, 67, 1)',
+                            'rgba(75, 108, 183, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: {
+                                    size: 14
+                                },
+                                padding: 20
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'การกระจายของความรู้สึก / Sentiment Distribution',
+                            font: {
+                                size: 16
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Download Excel
+        document.getElementById('downloadExcel').addEventListener('click', function() {
+            const ws_data = [
+                ['No.', 'Text', 'Sentiment', 'Score'],
+                ...analysisData.map(item => [item.no, item.text, item.sentiment, item.score])
+            ];
+
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Sentiment Analysis');
+
+            XLSX.writeFile(wb, 'sentiment_analysis_results.xlsx');
+        });
+
+        // Download Chart as PNG
+        document.getElementById('downloadChart').addEventListener('click', function() {
+            const canvas = document.getElementById('sentimentChart');
+            const url = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = 'sentiment_chart.png';
+            link.href = url;
+            link.click();
+        });
+
+        // Reset
+        document.getElementById('resetBtn').addEventListener('click', function() {
+            document.getElementById('fileInput').value = '';
+            document.getElementById('fileName').textContent = 'ยังไม่ได้เลือกไฟล์ / No file selected';
+            document.getElementById('analyzeBtn').disabled = true;
+            document.getElementById('downloadExcel').disabled = true;
+            document.getElementById('downloadChart').disabled = true;
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+            analysisData = [];
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+                chartInstance = null;
+            }
+        });
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
