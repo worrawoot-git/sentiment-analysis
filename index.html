@@ -343,7 +343,7 @@
                 📊 ดาวน์โหลดกราฟวงกลม PNG / Download Doughnut Chart
             </button>
             <button class="btn-download" id="downloadLineChart" disabled>
-                📈 ดาวน์โหลดกราฟเส้น PNG / Download Line Chart
+                📊 ดาวน์โหลดกราฟแท่ง PNG / Download Bar Chart
             </button>
             <button class="btn-reset" id="resetBtn">
                 🔄 รีเซ็ต / Reset
@@ -381,7 +381,7 @@
                     </div>
                     <div class="chart-container">
                         <h3 style="text-align: center; color: #667eea; margin-bottom: 15px;">
-                            กราฟค่าความรู้สึก / Sentiment Score Chart
+                            กราฟค่าความรู้สึก / Sentiment Score Bar Chart
                         </h3>
                         <canvas id="sentimentLineChart"></canvas>
                     </div>
@@ -631,6 +631,9 @@
                     responsive: true,
                     maintainAspectRatio: true,
                     aspectRatio: 1.5,
+                    layout: {
+                        padding: 20
+                    },
                     plugins: {
                         legend: {
                             position: 'bottom',
@@ -638,7 +641,23 @@
                                 font: {
                                     size: 14
                                 },
-                                padding: 20
+                                padding: 20,
+                                generateLabels: function(chart) {
+                                    const data = chart.data;
+                                    if (data.labels.length && data.datasets.length) {
+                                        return data.labels.map((label, i) => {
+                                            const value = data.datasets[0].data[i];
+                                            const percentage = ((value / total) * 100).toFixed(1);
+                                            return {
+                                                text: `${label}: ${value} (${percentage}%)`,
+                                                fillStyle: data.datasets[0].backgroundColor[i],
+                                                hidden: false,
+                                                index: i
+                                            };
+                                        });
+                                    }
+                                    return [];
+                                }
                             }
                         },
                         title: {
@@ -669,65 +688,40 @@
                             padding: 12
                         }
                     }
-                },
-                plugins: [{
-                    afterDatasetsDraw: function(chart) {
-                        const ctx = chart.ctx;
-                        chart.data.datasets.forEach(function(dataset, i) {
-                            const meta = chart.getDatasetMeta(i);
-                            if (!meta.hidden) {
-                                meta.data.forEach(function(element, index) {
-                                    ctx.fillStyle = 'white';
-                                    const fontSize = 18;
-                                    const fontStyle = 'bold';
-                                    const fontFamily = 'Arial';
-                                    ctx.font = Chart.helpers.fontString(fontSize, fontStyle, fontFamily);
-
-                                    const dataString = ((dataset.data[index] / total) * 100).toFixed(1) + '%';
-                                    ctx.textAlign = 'center';
-                                    ctx.textBaseline = 'middle';
-                                    const position = element.tooltipPosition();
-                                    ctx.fillText(dataString, position.x, position.y);
-                                });
-                            }
-                        });
-                    }
-                }]
+                }
             });
 
-            // Line Chart (-1 to +1)
-            const lineCtx = document.getElementById('sentimentLineChart').getContext('2d');
+            // Bar Chart (-1 to +1)
+            const barCtx = document.getElementById('sentimentLineChart').getContext('2d');
             
             if (lineChartInstance) {
                 lineChartInstance.destroy();
             }
 
-            // เตรียมข้อมูลสำหรับกราฟเส้น
+            // เตรียมข้อมูลสำหรับกราฟแท่ง
             const labels = analysisData.map((item) => `#${item.no}`);
             const scores = analysisData.map((item) => item.normalizedScore);
             const colors = scores.map(score => {
+                if (score > 0.2) return 'rgba(56, 239, 125, 0.8)';
+                if (score < -0.2) return 'rgba(244, 92, 67, 0.8)';
+                return 'rgba(75, 108, 183, 0.8)';
+            });
+            const borderColors = scores.map(score => {
                 if (score > 0.2) return 'rgba(56, 239, 125, 1)';
                 if (score < -0.2) return 'rgba(244, 92, 67, 1)';
                 return 'rgba(75, 108, 183, 1)';
             });
 
-            lineChartInstance = new Chart(lineCtx, {
-                type: 'line',
+            lineChartInstance = new Chart(barCtx, {
+                type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [{
                         label: 'Sentiment Score (คะแนนความรู้สึก)',
                         data: scores,
-                        borderColor: 'rgba(102, 126, 234, 1)',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        borderWidth: 3,
-                        pointRadius: 6,
-                        pointBackgroundColor: colors,
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2,
-                        pointHoverRadius: 8,
-                        fill: true,
-                        tension: 0.3
+                        backgroundColor: colors,
+                        borderColor: borderColors,
+                        borderWidth: 2
                     }]
                 },
                 options: {
@@ -814,17 +808,25 @@
                                 label: function(context) {
                                     const value = context.parsed.y;
                                     let sentiment = 'Neutral (กลางๆ)';
-                                    if (value > 0.2) sentiment = 'Positive (บวก)';
-                                    else if (value < -0.2) sentiment = 'Negative (ลบ)';
+                                    let emoji = '😐';
+                                    if (value > 0.2) {
+                                        sentiment = 'Positive (บวก)';
+                                        emoji = '😊';
+                                    } else if (value < -0.2) {
+                                        sentiment = 'Negative (ลบ)';
+                                        emoji = '😞';
+                                    }
                                     return [
-                                        `คะแนน: ${value.toFixed(2)}`,
+                                        `${emoji} คะแนน: ${value.toFixed(2)}`,
                                         `ประเภท: ${sentiment}`
                                     ];
                                 },
                                 afterLabel: function(context) {
                                     const index = context.dataIndex;
                                     if (analysisData[index]) {
-                                        return `ข้อความ: "${analysisData[index].text.substring(0, 50)}${analysisData[index].text.length > 50 ? '...' : ''}"`;
+                                        const text = analysisData[index].text;
+                                        const preview = text.length > 50 ? text.substring(0, 50) + '...' : text;
+                                        return `ข้อความ: "${preview}"`;
                                     }
                                     return '';
                                 }
@@ -872,7 +874,7 @@
             const canvas = document.getElementById('sentimentLineChart');
             const url = canvas.toDataURL('image/png');
             const link = document.createElement('a');
-            link.download = 'sentiment_score_chart.png';
+            link.download = 'sentiment_bar_chart.png';
             link.href = url;
             link.click();
         });
