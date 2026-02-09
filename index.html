@@ -254,6 +254,14 @@
         .chart-container {
             max-width: 600px;
             margin: 0 auto;
+            margin-bottom: 40px;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-top: 20px;
         }
 
         .loading {
@@ -315,8 +323,11 @@
             <button class="btn-download" id="downloadExcel" disabled>
                 📥 ดาวน์โหลด Excel / Download Excel
             </button>
-            <button class="btn-download" id="downloadChart" disabled>
-                📊 ดาวน์โหลดกราฟ PNG / Download Chart PNG
+            <button class="btn-download" id="downloadDoughnutChart" disabled>
+                📊 ดาวน์โหลดกราฟวงกลม PNG / Download Doughnut Chart
+            </button>
+            <button class="btn-download" id="downloadLineChart" disabled>
+                📈 ดาวน์โหลดกราฟเส้น PNG / Download Line Chart
             </button>
             <button class="btn-reset" id="resetBtn">
                 🔄 รีเซ็ต / Reset
@@ -343,10 +354,21 @@
 
             <div class="chart-section">
                 <h2 style="margin-bottom: 20px; color: #667eea; text-align: center;">
-                    📈 กราฟแสดงผล / Visualization Chart
+                    📈 กราฟแสดงผล / Visualization Charts
                 </h2>
-                <div class="chart-container">
-                    <canvas id="sentimentChart"></canvas>
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3 style="text-align: center; color: #667eea; margin-bottom: 15px;">
+                            กราฟสัดส่วน / Distribution Chart
+                        </h3>
+                        <canvas id="sentimentChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3 style="text-align: center; color: #667eea; margin-bottom: 15px;">
+                            กราฟค่าความรู้สึก / Sentiment Score Chart
+                        </h3>
+                        <canvas id="sentimentLineChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -355,6 +377,7 @@
     <script>
         let analysisData = [];
         let chartInstance = null;
+        let lineChartInstance = null;
 
         // คำศัพท์ภาษาไทย
         const thaiPositiveWords = [
@@ -447,7 +470,8 @@
                     no: index + 1,
                     text: text,
                     sentiment: sentiment.label,
-                    score: sentiment.score
+                    score: sentiment.score,
+                    normalizedScore: sentiment.normalizedScore
                 };
             });
 
@@ -480,19 +504,28 @@
 
             const totalScore = positiveScore - negativeScore;
             
-            let label, score;
+            // คำนวณ normalized score (-1 ถึง +1)
+            let normalizedScore = 0;
             if (totalScore > 0) {
-                label = 'Positive';
-                score = Math.min(100, 50 + (totalScore * 10));
+                normalizedScore = Math.min(1, totalScore / 5); // ถ้ามีคำบวก 5 คำขึ้นไป = 1
             } else if (totalScore < 0) {
+                normalizedScore = Math.max(-1, totalScore / 5); // ถ้ามีคำลบ 5 คำขึ้นไป = -1
+            }
+            
+            let label;
+            if (normalizedScore > 0.2) {
+                label = 'Positive';
+            } else if (normalizedScore < -0.2) {
                 label = 'Negative';
-                score = Math.max(0, 50 + (totalScore * 10));
             } else {
                 label = 'Neutral';
-                score = 50;
             }
 
-            return { label, score: Math.round(score) };
+            return { 
+                label, 
+                score: Math.round((normalizedScore + 1) * 50), // แปลงเป็น 0-100 สำหรับแสดง
+                normalizedScore: parseFloat(normalizedScore.toFixed(2)) // -1 ถึง +1
+            };
         }
 
         function displayResults() {
@@ -535,20 +568,24 @@
                     <td>${item.no}</td>
                     <td>${item.text}</td>
                     <td><span class="sentiment-badge ${item.sentiment.toLowerCase()}">${item.sentiment}</span></td>
-                    <td>${item.score}</td>
+                    <td>${item.normalizedScore}</td>
                 `;
             });
 
             // สร้างกราฟ
-            createChart(counts);
+            createCharts(counts);
 
             // แสดงผลลัพธ์
             document.getElementById('results').style.display = 'block';
             document.getElementById('downloadExcel').disabled = false;
-            document.getElementById('downloadChart').disabled = false;
+            document.getElementById('downloadDoughnutChart').disabled = false;
+            document.getElementById('downloadLineChart').disabled = false;
         }
 
-        function createChart(counts) {
+        function createCharts(counts) {
+            const total = analysisData.length;
+            
+            // Doughnut Chart with Percentages
             const ctx = document.getElementById('sentimentChart').getContext('2d');
             
             if (chartInstance) {
@@ -593,6 +630,149 @@
                             font: {
                                 size: 16
                             }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            formatter: (value, ctx) => {
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${percentage}%`;
+                            },
+                            color: '#fff',
+                            font: {
+                                weight: 'bold',
+                                size: 16
+                            }
+                        }
+                    }
+                },
+                plugins: [{
+                    afterDatasetsDraw: function(chart) {
+                        const ctx = chart.ctx;
+                        chart.data.datasets.forEach(function(dataset, i) {
+                            const meta = chart.getDatasetMeta(i);
+                            if (!meta.hidden) {
+                                meta.data.forEach(function(element, index) {
+                                    ctx.fillStyle = 'white';
+                                    const fontSize = 16;
+                                    const fontStyle = 'bold';
+                                    const fontFamily = 'Arial';
+                                    ctx.font = Chart.helpers.fontString(fontSize, fontStyle, fontFamily);
+
+                                    const dataString = ((dataset.data[index] / total) * 100).toFixed(1) + '%';
+                                    ctx.textAlign = 'center';
+                                    ctx.textBaseline = 'middle';
+                                    const position = element.tooltipPosition();
+                                    ctx.fillText(dataString, position.x, position.y);
+                                });
+                            }
+                        });
+                    }
+                }]
+            });
+
+            // Line Chart (-1 to +1)
+            const lineCtx = document.getElementById('sentimentLineChart').getContext('2d');
+            
+            if (lineChartInstance) {
+                lineChartInstance.destroy();
+            }
+
+            const lineChartData = analysisData.map((item, index) => ({
+                x: index + 1,
+                y: item.normalizedScore
+            }));
+
+            lineChartInstance = new Chart(lineCtx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Sentiment Score',
+                        data: lineChartData,
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        pointRadius: 5,
+                        pointBackgroundColor: function(context) {
+                            const value = context.parsed.y;
+                            if (value > 0.2) return 'rgba(56, 239, 125, 1)';
+                            if (value < -0.2) return 'rgba(244, 92, 67, 1)';
+                            return 'rgba(75, 108, 183, 1)';
+                        },
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointHoverRadius: 7,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: {
+                            min: -1,
+                            max: 1,
+                            ticks: {
+                                stepSize: 0.5,
+                                callback: function(value) {
+                                    if (value === 1) return '+1 (Positive)';
+                                    if (value === 0) return '0 (Neutral)';
+                                    if (value === -1) return '-1 (Negative)';
+                                    return value;
+                                }
+                            },
+                            grid: {
+                                color: function(context) {
+                                    if (context.tick.value === 0) return 'rgba(0, 0, 0, 0.3)';
+                                    return 'rgba(0, 0, 0, 0.1)';
+                                },
+                                lineWidth: function(context) {
+                                    if (context.tick.value === 0) return 2;
+                                    return 1;
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'ลำดับข้อความ / Text Number'
+                            },
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom'
+                        },
+                        title: {
+                            display: true,
+                            text: 'ค่าความรู้สึกแต่ละข้อความ / Sentiment Score per Text',
+                            font: {
+                                size: 16
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.parsed.y;
+                                    let sentiment = 'Neutral';
+                                    if (value > 0.2) sentiment = 'Positive';
+                                    else if (value < -0.2) sentiment = 'Negative';
+                                    return `Score: ${value} (${sentiment})`;
+                                }
+                            }
                         }
                     }
                 }
@@ -602,8 +782,8 @@
         // Download Excel
         document.getElementById('downloadExcel').addEventListener('click', function() {
             const ws_data = [
-                ['No.', 'Text', 'Sentiment', 'Score'],
-                ...analysisData.map(item => [item.no, item.text, item.sentiment, item.score])
+                ['No.', 'Text', 'Sentiment', 'Score (-1 to +1)'],
+                ...analysisData.map(item => [item.no, item.text, item.sentiment, item.normalizedScore])
             ];
 
             const ws = XLSX.utils.aoa_to_sheet(ws_data);
@@ -613,12 +793,22 @@
             XLSX.writeFile(wb, 'sentiment_analysis_results.xlsx');
         });
 
-        // Download Chart as PNG
-        document.getElementById('downloadChart').addEventListener('click', function() {
+        // Download Doughnut Chart as PNG
+        document.getElementById('downloadDoughnutChart').addEventListener('click', function() {
             const canvas = document.getElementById('sentimentChart');
             const url = canvas.toDataURL('image/png');
             const link = document.createElement('a');
-            link.download = 'sentiment_chart.png';
+            link.download = 'sentiment_distribution_chart.png';
+            link.href = url;
+            link.click();
+        });
+
+        // Download Line Chart as PNG
+        document.getElementById('downloadLineChart').addEventListener('click', function() {
+            const canvas = document.getElementById('sentimentLineChart');
+            const url = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = 'sentiment_score_chart.png';
             link.href = url;
             link.click();
         });
@@ -629,7 +819,8 @@
             document.getElementById('fileName').textContent = 'ยังไม่ได้เลือกไฟล์ / No file selected';
             document.getElementById('analyzeBtn').disabled = true;
             document.getElementById('downloadExcel').disabled = true;
-            document.getElementById('downloadChart').disabled = true;
+            document.getElementById('downloadDoughnutChart').disabled = true;
+            document.getElementById('downloadLineChart').disabled = true;
             document.getElementById('results').style.display = 'none';
             document.getElementById('error').style.display = 'none';
             analysisData = [];
@@ -637,6 +828,10 @@
             if (chartInstance) {
                 chartInstance.destroy();
                 chartInstance = null;
+            }
+            if (lineChartInstance) {
+                lineChartInstance.destroy();
+                lineChartInstance = null;
             }
         });
 
