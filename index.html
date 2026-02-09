@@ -253,9 +253,8 @@
 
         .chart-container {
             width: 100%;
-            max-width: 800px;
+            max-width: 700px;
             margin: 0 auto;
-            margin-bottom: 40px;
             padding: 20px;
             background: white;
             border-radius: 10px;
@@ -264,20 +263,6 @@
 
         .chart-container canvas {
             max-height: 500px;
-        }
-
-        .charts-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 30px;
-            margin-top: 20px;
-        }
-
-        @media (min-width: 1400px) {
-            .charts-grid {
-                display: grid;
-                grid-template-columns: repeat(2, 1fr);
-            }
         }
 
         .loading {
@@ -340,10 +325,7 @@
                 📥 ดาวน์โหลด Excel / Download Excel
             </button>
             <button class="btn-download" id="downloadDoughnutChart" disabled>
-                📊 ดาวน์โหลดกราฟวงกลม PNG / Download Doughnut Chart
-            </button>
-            <button class="btn-download" id="downloadLineChart" disabled>
-                📊 ดาวน์โหลดกราฟแท่ง PNG / Download Bar Chart
+                📊 ดาวน์โหลดกราฟ PNG / Download Chart PNG
             </button>
             <button class="btn-reset" id="resetBtn">
                 🔄 รีเซ็ต / Reset
@@ -370,21 +352,10 @@
 
             <div class="chart-section">
                 <h2 style="margin-bottom: 20px; color: #667eea; text-align: center;">
-                    📈 กราฟแสดงผล / Visualization Charts
+                    📈 กราฟแสดงผล / Visualization Chart
                 </h2>
-                <div class="charts-grid">
-                    <div class="chart-container">
-                        <h3 style="text-align: center; color: #667eea; margin-bottom: 15px;">
-                            กราฟสัดส่วน / Distribution Chart
-                        </h3>
-                        <canvas id="sentimentChart"></canvas>
-                    </div>
-                    <div class="chart-container">
-                        <h3 style="text-align: center; color: #667eea; margin-bottom: 15px;">
-                            กราฟค่าความรู้สึก / Sentiment Score Bar Chart
-                        </h3>
-                        <canvas id="sentimentLineChart"></canvas>
-                    </div>
+                <div class="chart-container">
+                    <canvas id="sentimentChart"></canvas>
                 </div>
             </div>
         </div>
@@ -393,7 +364,6 @@
     <script>
         let analysisData = [];
         let chartInstance = null;
-        let lineChartInstance = null;
 
         // คำศัพท์ภาษาไทย
         const thaiPositiveWords = [
@@ -589,16 +559,15 @@
             });
 
             // สร้างกราฟ
-            createCharts(counts);
+            createChart(counts);
 
             // แสดงผลลัพธ์
             document.getElementById('results').style.display = 'block';
             document.getElementById('downloadExcel').disabled = false;
             document.getElementById('downloadDoughnutChart').disabled = false;
-            document.getElementById('downloadLineChart').disabled = false;
         }
 
-        function createCharts(counts) {
+        function createChart(counts) {
             const total = analysisData.length;
             
             // Doughnut Chart with Percentages
@@ -690,159 +659,6 @@
                     }
                 }
             });
-
-            // Bar Chart (-1 to +1)
-            const barCtx = document.getElementById('sentimentLineChart').getContext('2d');
-            
-            if (lineChartInstance) {
-                lineChartInstance.destroy();
-            }
-
-            // เตรียมข้อมูลสำหรับกราฟแท่ง
-            const labels = analysisData.map((item) => `#${item.no}`);
-            const scores = analysisData.map((item) => item.normalizedScore);
-            const colors = scores.map(score => {
-                if (score > 0.2) return 'rgba(56, 239, 125, 0.8)';
-                if (score < -0.2) return 'rgba(244, 92, 67, 0.8)';
-                return 'rgba(75, 108, 183, 0.8)';
-            });
-            const borderColors = scores.map(score => {
-                if (score > 0.2) return 'rgba(56, 239, 125, 1)';
-                if (score < -0.2) return 'rgba(244, 92, 67, 1)';
-                return 'rgba(75, 108, 183, 1)';
-            });
-
-            lineChartInstance = new Chart(barCtx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Sentiment Score (คะแนนความรู้สึก)',
-                        data: scores,
-                        backgroundColor: colors,
-                        borderColor: borderColors,
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: 2,
-                    scales: {
-                        y: {
-                            min: -1.2,
-                            max: 1.2,
-                            ticks: {
-                                stepSize: 0.5,
-                                font: {
-                                    size: 12
-                                },
-                                callback: function(value) {
-                                    if (value === 1) return '+1.0 (Positive)';
-                                    if (value === 0.5) return '+0.5';
-                                    if (value === 0) return '0.0 (Neutral)';
-                                    if (value === -0.5) return '-0.5';
-                                    if (value === -1) return '-1.0 (Negative)';
-                                    return value.toFixed(1);
-                                }
-                            },
-                            grid: {
-                                color: function(context) {
-                                    if (context.tick.value === 0) return 'rgba(102, 126, 234, 0.5)';
-                                    if (context.tick.value === 1 || context.tick.value === -1) return 'rgba(0, 0, 0, 0.2)';
-                                    return 'rgba(0, 0, 0, 0.1)';
-                                },
-                                lineWidth: function(context) {
-                                    if (context.tick.value === 0) return 3;
-                                    if (context.tick.value === 1 || context.tick.value === -1) return 2;
-                                    return 1;
-                                }
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'ลำดับข้อความ / Text Number',
-                                font: {
-                                    size: 14,
-                                    weight: 'bold'
-                                }
-                            },
-                            ticks: {
-                                font: {
-                                    size: 11
-                                },
-                                maxRotation: 45,
-                                minRotation: 0
-                            },
-                            grid: {
-                                display: false
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top',
-                            labels: {
-                                font: {
-                                    size: 14
-                                },
-                                padding: 20
-                            }
-                        },
-                        title: {
-                            display: true,
-                            text: 'ค่าความรู้สึกแต่ละข้อความ / Sentiment Score per Text',
-                            font: {
-                                size: 16,
-                                weight: 'bold'
-                            },
-                            padding: 20
-                        },
-                        tooltip: {
-                            callbacks: {
-                                title: function(context) {
-                                    return `ข้อความที่ ${context[0].label}`;
-                                },
-                                label: function(context) {
-                                    const value = context.parsed.y;
-                                    let sentiment = 'Neutral (กลางๆ)';
-                                    let emoji = '😐';
-                                    if (value > 0.2) {
-                                        sentiment = 'Positive (บวก)';
-                                        emoji = '😊';
-                                    } else if (value < -0.2) {
-                                        sentiment = 'Negative (ลบ)';
-                                        emoji = '😞';
-                                    }
-                                    return [
-                                        `${emoji} คะแนน: ${value.toFixed(2)}`,
-                                        `ประเภท: ${sentiment}`
-                                    ];
-                                },
-                                afterLabel: function(context) {
-                                    const index = context.dataIndex;
-                                    if (analysisData[index]) {
-                                        const text = analysisData[index].text;
-                                        const preview = text.length > 50 ? text.substring(0, 50) + '...' : text;
-                                        return `ข้อความ: "${preview}"`;
-                                    }
-                                    return '';
-                                }
-                            },
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            titleFont: {
-                                size: 14
-                            },
-                            bodyFont: {
-                                size: 13
-                            },
-                            padding: 12
-                        }
-                    }
-                }
-            });
         }
 
         // Download Excel
@@ -859,22 +675,27 @@
             XLSX.writeFile(wb, 'sentiment_analysis_results.xlsx');
         });
 
-        // Download Doughnut Chart as PNG
+        // Download Doughnut Chart as PNG with white background
         document.getElementById('downloadDoughnutChart').addEventListener('click', function() {
             const canvas = document.getElementById('sentimentChart');
-            const url = canvas.toDataURL('image/png');
+            
+            // Create a temporary canvas with white background
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Fill with white background
+            tempCtx.fillStyle = '#FFFFFF';
+            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            
+            // Draw the chart on top
+            tempCtx.drawImage(canvas, 0, 0);
+            
+            // Download the image
+            const url = tempCanvas.toDataURL('image/png');
             const link = document.createElement('a');
-            link.download = 'sentiment_distribution_chart.png';
-            link.href = url;
-            link.click();
-        });
-
-        // Download Line Chart as PNG
-        document.getElementById('downloadLineChart').addEventListener('click', function() {
-            const canvas = document.getElementById('sentimentLineChart');
-            const url = canvas.toDataURL('image/png');
-            const link = document.createElement('a');
-            link.download = 'sentiment_bar_chart.png';
+            link.download = 'sentiment_chart.png';
             link.href = url;
             link.click();
         });
@@ -886,7 +707,6 @@
             document.getElementById('analyzeBtn').disabled = true;
             document.getElementById('downloadExcel').disabled = true;
             document.getElementById('downloadDoughnutChart').disabled = true;
-            document.getElementById('downloadLineChart').disabled = true;
             document.getElementById('results').style.display = 'none';
             document.getElementById('error').style.display = 'none';
             analysisData = [];
@@ -894,10 +714,6 @@
             if (chartInstance) {
                 chartInstance.destroy();
                 chartInstance = null;
-            }
-            if (lineChartInstance) {
-                lineChartInstance.destroy();
-                lineChartInstance = null;
             }
         });
 
